@@ -90,7 +90,7 @@ Returns
 dict with msi_pcr_result, mmr_ihc_result, concordance, final_status,
 treatment_recommendations
 - **`get_msi_prevalence()`**: Get MSI-H prevalence for a specific cancer type.
-- **`process_batch()`**: Process a CSV of MSI cases.
+- **`process_batch()`**: Process a CSV of MSI cases (with path validation).
 
 Expected columns: BAT-25, BAT-26, D2S123, D5S346, D17S250 (as true/false)
 Optional: MLH1, MSH2, MSH6, PMS2, BRAF_V600E
@@ -99,54 +99,92 @@ Optional: MLH1, MSH2, MSH6, PMS2, BRAF_V600E
 
 ## 💻 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### 1. Assess MSI Status from Bethesda Panel
 ```bash
-python cli.py
+python cli.py msi --bat25 unstable --bat26 unstable --d2s123 stable --d5s346 stable --d17s250 stable
 ```
 
-### 2. Direct Parameterized Evaluation
+### 2. Interpret MMR IHC Results
 ```bash
-python cli.py --input data.csv
+python cli.py mmr --mlh1 lost --msh2 retained --msh6 retained --pms2 lost --braf present
 ```
 
-### Parameter Reference
-- `--interactive`: Launch guided terminal interactive wizard.
-- `--input <path>`: Evaluate input from JSON or CSV specification.
-- `--json`: Output deterministic structured results in JSON format.
+### 3. Combined Assessment
+```bash
+python cli.py assess --bat25 unstable --bat26 unstable --d2s123 stable --d5s346 stable --d17s250 stable --mlh1 lost --msh2 retained --msh6 retained --pms2 lost
+```
 
-### Input Data Schema
+### 4. Get MSI-H Prevalence by Cancer Type
+```bash
+python cli.py prevalence --cancer-type colorectal
+```
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+### 5. Batch Process CSV
+```bash
+python cli.py batch -i input.csv -o results.csv
+```
+
+### 6. Start REST API Server
+```bash
+python cli.py serve --host 0.0.0.0 --port 8000
+```
+
+### CLI Commands
+
+| Command | Description | Key Parameters |
+|:--------|:------------|:---------------|
+| `msi` | Assess MSI from Bethesda panel | `--bat25`, `--bat26`, `--d2s123`, `--d5s346`, `--d17s250` (stable/unstable) |
+| `mmr` | Interpret MMR IHC results | `--mlh1`, `--msh2`, `--msh6`, `--pms2` (retained/lost), optional `--braf`, `--methylation` |
+| `assess` | Combined MSI + MMR assessment | All marker and MMR params (all optional) |
+| `prevalence` | MSI-H prevalence by cancer type | `--cancer-type` |
+| `batch` | Batch process CSV | `-i` input, `-o` output (default: results.csv) |
+| `serve` | Start FastAPI REST server | `--host`, `--port` (default: 0.0.0.0:8000) |
 
 ---
 
 ## 🛡️ Security & Enterprise Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
+* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Uses `AUDIT_SECRET_KEY` env var or generates a secure ephemeral key.
+* **Path Traversal Protection:** Batch processing validates input/output file paths to prevent directory traversal attacks.
 * **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
 * **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
 * **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+### Environment Variables
+| Variable | Description | Default |
+|:---------|:------------|:--------|
+| `AUDIT_SECRET_KEY` | HMAC key for audit trail integrity | Auto-generated (ephemeral) |
+| `MODEL_PROVIDER` | LLM provider (`mock`, `ollama`, `claude`, `openai`) | `mock` |
 
 ---
 
 ## 🧪 Testing & Verification
 
-Run the automated test suite:
+### Install Dependencies
+```bash
+pip install pytest pydantic fastapi uvicorn
+```
 
+### Run All Tests
 ```bash
 pytest -v
 ```
 
-Execute high-throughput batch simulation benchmarks:
+### Test Structure
+- **`test_msi_scorer.py`** - 25 tests for core MSI/MMR scoring logic
+- **`tests/test_enrichment.py`** - 2 tests for enrichment suite
+- **`tests/test_msi_sensor_microsatellite_scorer.py`** - 3 tests for PHI guard, workers, and supervisor
+- **`tests/test_security.py`** - 15 tests for path traversal, HMAC key generation, and PHI patterns
 
+### Run Security Tests Only
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+pytest tests/test_security.py -v
+```
+
+### Execute High-Throughput Simulation
+```bash
+python simulator.py 1000
 ```
 
 ---

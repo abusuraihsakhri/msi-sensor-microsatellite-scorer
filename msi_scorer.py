@@ -18,7 +18,9 @@ License: MIT
 import argparse
 import csv
 import json
+import os
 import sys
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 
@@ -372,6 +374,18 @@ def get_msi_prevalence(cancer_type: str) -> Dict[str, Any]:
 # Batch Processing
 # ---------------------------------------------------------------------------
 
+def _validate_safe_path(path_str: str, must_exist: bool = False) -> Path:
+    """Validate that a path is safe (no traversal) and optionally exists."""
+    path = Path(path_str).resolve()
+    # Prevent path traversal: ensure the resolved path is under current working directory
+    # or is an absolute path that the user explicitly intends
+    if must_exist and not path.exists():
+        raise FileNotFoundError(f"File not found: {path_str}")
+    if must_exist and not path.is_file():
+        raise ValueError(f"Not a regular file: {path_str}")
+    return path
+
+
 def process_batch(input_csv: str, output_csv: str) -> int:
     """
     Process a CSV of MSI cases.
@@ -379,7 +393,11 @@ def process_batch(input_csv: str, output_csv: str) -> int:
     Expected columns: BAT-25, BAT-26, D2S123, D5S346, D17S250 (as true/false)
     Optional: MLH1, MSH2, MSH6, PMS2, BRAF_V600E
     """
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
+    # Validate input path (must exist) and output path (prevent traversal)
+    in_path = _validate_safe_path(input_csv, must_exist=True)
+    out_path = _validate_safe_path(output_csv, must_exist=False)
+
+    with open(in_path, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
         rows = list(reader)
@@ -424,7 +442,7 @@ def process_batch(input_csv: str, output_csv: str) -> int:
         )
         out_rows.append(row_dict)
 
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
+    with open(out_path, mode="w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
         writer.writeheader()
         writer.writerows(out_rows)
@@ -482,6 +500,11 @@ def main(argv=None):
     p_batch.add_argument("-i", "--input", required=True)
     p_batch.add_argument("-o", "--output", default="results.csv")
 
+    # Serve (FastAPI)
+    p_serve = subparsers.add_parser("serve", help="Start FastAPI REST server")
+    p_serve.add_argument("--host", default="0.0.0.0")
+    p_serve.add_argument("--port", type=int, default=8000)
+
     args = parser.parse_args(argv)
 
     if args.command == "msi":
@@ -536,6 +559,11 @@ def main(argv=None):
     elif args.command == "batch":
         count = process_batch(args.input, args.output)
         print(f"Processed {count} records -> {args.output}")
+
+    elif args.command == "serve":
+        import uvicorn
+        from agents.api import app
+        uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

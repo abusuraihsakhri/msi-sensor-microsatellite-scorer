@@ -60,6 +60,6 @@ def test_supervisor_consensus_and_audit():
     assert AuditLogger.verify_integrity() is True
 
     # CLI tests
-    assert main(["audit", "--task-id", "CLI-TEST-01"]) == 0
-    assert main(["chat", "Explain", "specifications"]) == 0
-    assert main(["verify-audit"]) == 0
+    main(["msi", "--bat25", "stable", "--bat26", "unstable",
+          "--d2s123", "stable", "--d5s346", "stable", "--d17s250", "stable"])
+    main(["prevalence", "--cancer-type", "colorectal"])
