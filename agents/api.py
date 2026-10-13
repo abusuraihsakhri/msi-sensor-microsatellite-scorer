@@ -3,8 +3,10 @@ FastAPI REST API Server for Msi Sensor Microsatellite Scorer.
 """
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard
+from .metrics import GLOBAL_METRICS
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -12,7 +14,7 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Msi Sensor Microsatellite Scorer API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
+    description="Demonstration audit supervisor API; Bethesda scoring is exposed via CLI and static application.",
     version="3.0.0-ENTERPRISE",
 )
 
@@ -33,6 +35,11 @@ def metrics():
         "audit_blocks_total": len(AuditLogger.get_trail()),
         "system_status": "NOMINAL_OPTIMAL"
     }
+
+
+@app.get("/metrics/prometheus", response_class=PlainTextResponse)
+def prometheus_metrics():
+    return GLOBAL_METRICS.export_prometheus_text()
 
 
 @app.post("/api/audit")
