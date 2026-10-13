@@ -83,6 +83,10 @@ def assess_msi_status(marker_results: Dict[str, bool]) -> Dict[str, Any]:
     if missing:
         raise ValueError(f"Missing markers: {missing}. Required: {ALL_MARKERS}")
 
+    unknown = provided - expected
+    if unknown:
+        raise ValueError(f"Unknown markers: {sorted(unknown)}. Allowed: {ALL_MARKERS}")
+
     for marker, status in marker_results.items():
         if not isinstance(status, bool):
             raise ValueError(f"Marker '{marker}' value must be bool; got {type(status)}")
@@ -139,15 +143,15 @@ def assess_msi_status(marker_results: Dict[str, bool]) -> Dict[str, Any]:
         }
     elif msi_status == "MSI-L":
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for MSI-L tumors",
+            "pembrolizumab": "NOT indicated on the basis of MSI-L alone",
             "nivolumab": "NOT indicated for MSI-L tumors",
-            "note": "MSI-L tumors generally do not respond to checkpoint inhibitors. Consider other biomarkers.",
+            "note": "MSI-L alone is not a validated positive predictive marker for checkpoint inhibitor response; assess other indications.",
         }
     else:
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for MSS tumors",
+            "pembrolizumab": "NOT indicated on the basis of MSS alone",
             "nivolumab": "NOT indicated for MSS tumors",
-            "note": "MSS tumors generally do not respond to checkpoint inhibitors.",
+            "note": "MSS alone does not determine overall immunotherapy eligibility; consider other biomarkers and indications.",
         }
 
     return result
@@ -184,6 +188,15 @@ def interpret_mmr_ihc(mlh1: bool, msh2: bool, msh6: bool, pms2: bool,
     suspected_lynch_syndrome, etiology, description, treatment_implications
     """
     proteins = {"MLH1": mlh1, "MSH2": msh2, "MSH6": msh6, "PMS2": pms2}
+    for protein, value in proteins.items():
+        if not isinstance(value, bool):
+            raise ValueError(f"{protein} expression must be bool")
+    for name, value in {
+        "braf_v600e": braf_v600e,
+        "mlh1_promoter_methylation": mlh1_promoter_methylation,
+    }.items():
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(f"{name} must be bool or None")
     lost = [name for name, retained in proteins.items() if not retained]
     retained = [name for name, retained in proteins.items() if retained]
 
@@ -206,10 +219,10 @@ def interpret_mmr_ihc(mlh1: bool, msh2: bool, msh6: bool, pms2: bool,
         if "MLH1" in lost and "PMS2" in lost:
             # MLH1 loss causes secondary PMS2 loss
             if braf_v600e is True:
-                etiology = "Sporadic (MLH1 loss + BRAF V600E = sporadic hypermethylation)"
+                etiology = "Sporadic origin favored by BRAF V600E in colorectal tumors; correlate with methylation and clinical context"
                 lynch = False
             elif mlh1_promoter_methylation is True:
-                etiology = "Sporadic (MLH1 promoter methylation confirmed)"
+                etiology = "Sporadic origin favored (MLH1 promoter methylation detected); rare constitutional causes require context"
                 lynch = False
             elif braf_v600e is False and mlh1_promoter_methylation is False:
                 etiology = "Lynch syndrome suspected (MLH1 loss without BRAF V600E or methylation)"
@@ -254,8 +267,8 @@ def interpret_mmr_ihc(mlh1: bool, msh2: bool, msh6: bool, pms2: bool,
         }
     else:
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for pMMR tumors",
-            "note": "pMMR tumors generally do not respond to checkpoint inhibitors.",
+            "pembrolizumab": "NOT indicated on the basis of pMMR alone",
+            "note": "pMMR alone does not determine overall immunotherapy eligibility; consider other biomarkers and indications.",
         }
 
     return result
@@ -302,8 +315,15 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
     if marker_results is not None:
         result["msi_pcr_result"] = assess_msi_status(marker_results)
 
-    # IHC-based MMR assessment
-    if all(v is not None for v in [mlh1, msh2, msh6, pms2]):
+    # IHC-based MMR assessment: do not silently discard partial panels.
+    ihc_values = [mlh1, msh2, msh6, pms2]
+    if (braf_v600e is not None or mlh1_promoter_methylation is not None) and not all(
+        v is not None for v in ihc_values
+    ):
+        raise ValueError("Molecular adjunct results require all four MMR IHC protein values")
+    if any(v is not None for v in ihc_values) and not all(v is not None for v in ihc_values):
+        raise ValueError("MMR IHC assessment requires all four proteins")
+    if all(v is not None for v in ihc_values):
         result["mmr_ihc_result"] = interpret_mmr_ihc(
             mlh1, msh2, msh6, pms2,
             braf_v600e=braf_v600e,
@@ -322,8 +342,12 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
         else:
             result["concordance"] = "Discordant"
 
-        if pcr_msih or ihc_dmmr:
+        if result["concordance"] == "Discordant":
+            result["final_status"] = "Discordant (PCR/IHC)"
+        elif pcr_msih:
             result["final_status"] = "MSI-H/dMMR"
+        elif pcr["msi_status"] == "MSI-L":
+            result["final_status"] = "MSI-L/pMMR"
         else:
             result["final_status"] = "MSS/pMMR"
 
@@ -335,7 +359,11 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
         raise ValueError("At least one of marker_results or MMR IHC data must be provided")
 
     # Treatment recommendations
-    if result["final_status"] in ("MSI-H", "MSI-H/dMMR", "dMMR"):
+    if result["concordance"] == "Discordant":
+        result["treatment_recommendations"] = {
+            "note": "PCR and MMR IHC are discordant; review specimen, assay quality and clinical context before interpretation."
+        }
+    elif result["final_status"] in ("MSI-H", "MSI-H/dMMR", "dMMR"):
         result["treatment_recommendations"] = {
             "immune_checkpoint_inhibitors": "Indicated",
             "pembrolizumab": "FDA-approved (any solid tumor, MSI-H/dMMR)",
@@ -344,7 +372,7 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
         }
     else:
         result["treatment_recommendations"] = {
-            "immune_checkpoint_inhibitors": "NOT indicated",
+            "immune_checkpoint_inhibitors": "NOT indicated solely from these MSI/MMR findings",
             "note": "Consider other biomarkers for treatment selection.",
         }
 
@@ -375,10 +403,9 @@ def get_msi_prevalence(cancer_type: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _validate_safe_path(path_str: str, must_exist: bool = False) -> Path:
-    """Validate that a path is safe (no traversal) and optionally exists."""
+    """Normalize a caller-supplied local path; this trusted CLI is not a filesystem sandbox."""
     path = Path(path_str).resolve()
-    # Prevent path traversal: ensure the resolved path is under current working directory
-    # or is an absolute path that the user explicitly intends
+    # The local CLI caller explicitly controls the input and output paths.
     if must_exist and not path.exists():
         raise FileNotFoundError(f"File not found: {path_str}")
     if must_exist and not path.is_file():
@@ -386,67 +413,87 @@ def _validate_safe_path(path_str: str, must_exist: bool = False) -> Path:
     return path
 
 
-def process_batch(input_csv: str, output_csv: str) -> int:
-    """
-    Process a CSV of MSI cases.
+def _parse_csv_bool(value: str, label: str, row_number: int, *, protein: bool = False) -> bool:
+    """Accept only explicit stable/unstable or retained/lost values."""
+    if value is None:
+        raise ValueError(f"Row {row_number}: missing {label}")
+    token = value.strip().lower()
+    positives = {"true", "1", "yes", "retained", "positive", "present", "detected", "methylated"} if protein else {"true", "1", "yes", "unstable"}
+    negatives = {"false", "0", "no", "lost", "negative", "absent", "not_detected", "unmethylated"} if protein else {"false", "0", "no", "stable"}
+    if token in positives:
+        return True
+    if token in negatives:
+        return False
+    raise ValueError(f"Row {row_number}: invalid {label} value {value!r}")
 
-    Expected columns: BAT-25, BAT-26, D2S123, D5S346, D17S250 (as true/false)
-    Optional: MLH1, MSH2, MSH6, PMS2, BRAF_V600E
+
+def _csv_safe(value: str) -> str:
+    """Prevent spreadsheet programs evaluating untrusted free-text cells as formulas."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
+def process_batch(input_csv: str, output_csv: str) -> int:
+    """Classify a CSV of five-marker Bethesda panel observations.
+
+    Requires all five marker headers. If any MMR IHC header is supplied,
+    all four are required. Invalid and missing cell values fail closed.
     """
-    # Validate input path (must exist) and output path (prevent traversal)
     in_path = _validate_safe_path(input_csv, must_exist=True)
     out_path = _validate_safe_path(output_csv, must_exist=False)
+    if in_path == out_path:
+        raise ValueError("Input and output CSV paths must differ")
 
-    with open(in_path, mode="r", encoding="utf-8-sig") as f:
+    with open(in_path, mode="r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
-        rows = list(reader)
-
-    out_fields = fieldnames + ["msi_status", "unstable_count", "mmr_status",
-                               "final_status", "treatment_note"]
-    out_rows = []
-
-    for row in rows:
-        # Parse marker results
-        marker_results = {}
-        for marker in ALL_MARKERS:
-            val = row.get(marker, "false").strip().lower()
-            marker_results[marker] = val in ("true", "1", "yes", "unstable")
-
-        msi_result = assess_msi_status(marker_results)
-
-        # Parse MMR IHC if available
-        mmr_result = None
-        if all(k in row for k in ["MLH1", "MSH2", "MSH6", "PMS2"]):
-            def parse_bool(v):
-                return v.strip().lower() in ("true", "1", "yes", "retained", "positive")
-            braf = row.get("BRAF_V600E")
-            mmr_result = interpret_mmr_ihc(
-                parse_bool(row["MLH1"]), parse_bool(row["MSH2"]),
-                parse_bool(row["MSH6"]), parse_bool(row["PMS2"]),
-                braf_v600e=parse_bool(braf) if braf else None,
-            )
-
-        row_dict = dict(row)
-        row_dict["msi_status"] = msi_result["msi_status"]
-        row_dict["unstable_count"] = msi_result["unstable_count"]
-        row_dict["mmr_status"] = mmr_result["mmr_status"] if mmr_result else "N/A"
-        row_dict["final_status"] = msi_result["msi_status"]
-        if mmr_result:
-            row_dict["final_status"] = (
-                f"{msi_result['msi_status']}/{mmr_result['mmr_status']}"
-            )
-        row_dict["treatment_note"] = (
-            "Checkpoint inhibitor eligible" if msi_result["msi_status"] == "MSI-H"
-            else "Checkpoint inhibitor NOT indicated"
-        )
-        out_rows.append(row_dict)
+        if not fieldnames or len(fieldnames) != len(set(fieldnames)):
+            raise ValueError("CSV must contain unique column names")
+        missing = set(ALL_MARKERS) - set(fieldnames)
+        if missing:
+            raise ValueError(f"Missing required CSV columns: {sorted(missing)}")
+        ihc_cols = {"MLH1", "MSH2", "MSH6", "PMS2"}
+        if (ihc_cols & set(fieldnames)) and not ihc_cols.issubset(fieldnames):
+            raise ValueError("MMR IHC CSV requires all four protein columns")
+        if {"BRAF_V600E", "MLH1_PROMOTER_METHYLATION"} & set(fieldnames):
+            if not ihc_cols.issubset(fieldnames):
+                raise ValueError("Molecular adjunct CSV columns require all four MMR IHC columns")
+        result_columns = ["msi_status", "unstable_count", "mmr_status", "final_status", "treatment_note"]
+        if set(result_columns) & set(fieldnames):
+            raise ValueError("CSV contains reserved output column names")
+        out_rows = []
+        for row_number, row in enumerate(reader, start=2):
+            if None in row:
+                raise ValueError(f"Row {row_number}: more cells than CSV headers")
+            markers = {marker: _parse_csv_bool(row.get(marker), marker, row_number)
+                       for marker in ALL_MARKERS}
+            kwargs = {}
+            if ihc_cols.issubset(fieldnames):
+                kwargs = {protein.lower(): _parse_csv_bool(row.get(protein), protein, row_number, protein=True)
+                          for protein in MMR_PROTEINS}
+                for field, arg in (("BRAF_V600E", "braf_v600e"),
+                                   ("MLH1_PROMOTER_METHYLATION", "mlh1_promoter_methylation")):
+                    value = row.get(field)
+                    if value is not None and value.strip():
+                        kwargs[arg] = _parse_csv_bool(value, field, row_number, protein=True)
+            assessment = combined_msi_assessment(marker_results=markers, **kwargs)
+            pcr = assessment["msi_pcr_result"]
+            ihc = assessment["mmr_ihc_result"]
+            item = {key: _csv_safe(value) for key, value in row.items()}
+            item.update({
+                "msi_status": pcr["msi_status"],
+                "unstable_count": pcr["unstable_count"],
+                "mmr_status": ihc["mmr_status"] if ihc else "N/A",
+                "final_status": assessment["final_status"],
+                "treatment_note": "Interpret with clinical context; not a treatment decision",
+            })
+            out_rows.append(item)
 
     with open(out_path, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
+        writer = csv.DictWriter(f, fieldnames=fieldnames + result_columns)
         writer.writeheader()
         writer.writerows(out_rows)
-
     return len(out_rows)
 
 
@@ -502,7 +549,7 @@ def main(argv=None):
 
     # Serve (FastAPI)
     p_serve = subparsers.add_parser("serve", help="Start FastAPI REST server")
-    p_serve.add_argument("--host", default="0.0.0.0")
+    p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
@@ -530,7 +577,12 @@ def main(argv=None):
 
     elif args.command == "assess":
         markers = None
-        if all(getattr(args, m) is not None for m in ["bat25", "bat26", "d2s123", "d5s346", "d17s250"]):
+        marker_args = ["bat25", "bat26", "d2s123", "d5s346", "d17s250"]
+        if any(getattr(args, m) is not None for m in marker_args) and not all(
+            getattr(args, m) is not None for m in marker_args
+        ):
+            parser.error("Combined assessment requires all five PCR marker arguments")
+        if all(getattr(args, m) is not None for m in marker_args):
             markers = {
                 "BAT-25": args.bat25 == "unstable",
                 "BAT-26": args.bat26 == "unstable",

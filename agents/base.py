@@ -1,5 +1,5 @@
 """
-Enterprise Security, PHI Outbound Guard, and HMAC-SHA256 Audit Trail.
+Regex-based identifier screening and in-memory HMAC-SHA256 audit trail.
 
 """
 import os
@@ -26,7 +26,7 @@ PHI_PATTERNS = [
 
 
 class SecurityException(Exception):
-    """Raised when outbound data violates HIPAA Safe Harbor or contains raw PHI."""
+    """Raised when a configured identifier regex matches; not a HIPAA compliance certification."""
     pass
 
 
@@ -94,9 +94,23 @@ class AuditTrail:
         return entry
 
     def verify_integrity(self) -> bool:
-        for i, entry in enumerate(self.logs):
-            prev = self.logs[i-1]["current_hash"] if i > 0 else "GENESIS_BLOCK_0000000000000000"
-            if entry["prev_hash"] != prev:
+        """Verify the complete HMAC chain, not only previous-hash pointers."""
+        previous = "GENESIS_BLOCK_0000000000000000"
+        for entry in self.logs:
+            try:
+                if entry["prev_hash"] != previous:
+                    return False
+                signed = "|".join(str(entry[key]) for key in (
+                    "audit_id", "timestamp", "actor", "actor_tier",
+                    "event_type", "payload_hash", "prev_hash"
+                ))
+                expected = hmac.new(
+                    self.secret_key, signed.encode("utf-8"), hashlib.sha256
+                ).hexdigest()
+                if not hmac.compare_digest(expected, entry["current_hash"]):
+                    return False
+                previous = entry["current_hash"]
+            except (KeyError, TypeError, ValueError):
                 return False
         return True
 

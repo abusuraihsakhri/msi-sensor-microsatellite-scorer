@@ -112,7 +112,7 @@ class RationaleEngine:
 # 3. IMPLEMENTATION PLAN
 # =============================================================================
 @dataclass
-class ImplementationPlanEngineResult:
+class PairedAnalysisPlanEngineResult:
     feature_name: str = "Implementation Plan"
     status: str = "OPTIMAL"
     score: float = 0.0
@@ -121,16 +121,16 @@ class ImplementationPlanEngineResult:
     recommendations: List[str] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
 
-class ImplementationPlanEngine:
+class PairedAnalysisPlanEngine:
     """
     Implementation Plan: **Module: `msi_paired_analyzer.py`**
     """
     def __init__(self, threshold: float = 1.0, config: Optional[Dict[str, Any]] = None):
         self.threshold = threshold
         self.config = config or {}
-        self.history: List[ImplementationPlanEngineResult] = []
+        self.history: List[PairedAnalysisPlanEngineResult] = []
 
-    def evaluate(self, primary_value: float, secondary_value: float = 0.0, **kwargs) -> ImplementationPlanEngineResult:
+    def evaluate(self, primary_value: float, secondary_value: float = 0.0, **kwargs) -> PairedAnalysisPlanEngineResult:
         alerts = []
         recs = []
         status = "OPTIMAL"
@@ -147,7 +147,7 @@ class ImplementationPlanEngine:
         else:
             recs.append("Parameters nominal under standard operating bounds.")
 
-        res = ImplementationPlanEngineResult(
+        res = PairedAnalysisPlanEngineResult(
             feature_name="Implementation Plan",
             status=status,
             score=score,
@@ -266,7 +266,7 @@ class MsisensormicrosatellitescorerEnrichmentSuite:
     def __init__(self):
         self.microsatelliteinstab = MicrosatelliteInstabilityClassificationWithTumornormalPairedAnalysisEngine()
         self.rationaleengine = RationaleEngine()
-        self.implementationplanen = ImplementationPlanEngine()
+        self.paired_analysis_plan = PairedAnalysisPlanEngine()
         self.msiclassificationwit = MsiClassificationWithImmunotherapyResponsePredictionEngine()
         self.implementationplanen = ImplementationPlanEngine()
 
@@ -274,7 +274,7 @@ class MsisensormicrosatellitescorerEnrichmentSuite:
         results = {}
         results["MicrosatelliteInstabilityClassificationWithTumornormalPairedAnalysisEngine"] = self.microsatelliteinstab.evaluate(primary_val, secondary_val)
         results["RationaleEngine"] = self.rationaleengine.evaluate(primary_val, secondary_val)
-        results["ImplementationPlanEngine"] = self.implementationplanen.evaluate(primary_val, secondary_val)
+        results["PairedAnalysisPlanEngine"] = self.paired_analysis_plan.evaluate(primary_val, secondary_val)
         results["MsiClassificationWithImmunotherapyResponsePredictionEngine"] = self.msiclassificationwit.evaluate(primary_val, secondary_val)
         results["ImplementationPlanEngine"] = self.implementationplanen.evaluate(primary_val, secondary_val)
         return results

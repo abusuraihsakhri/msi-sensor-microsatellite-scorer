@@ -1,197 +1,74 @@
 # MSI Sensor Microsatellite Scorer
 
-> **Domain:** Medical Oncology & Cancer Staging Systems  
-> **Reference Guidelines & Standards:** `AJCC Cancer Staging Manual & NCCN Clinical Practice Guidelines`
+Five-marker Bethesda PCR classification and mismatch repair (MMR) immunohistochemistry (IHC) interpretation, with a Python CLI, batch CSV processing, an optional FastAPI service and a static browser interface.
 
-<div align="center">
+**Scope:** Despite the repository name, this project does **not** implement the original MSIsensor or MSIsensor2 algorithms for BAM/NGS read data. It classifies already-interpreted locus instability observations. It has not been validated as a clinical diagnostic device.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Browser application
 
-</div>
+The root `index.html` is a no-build static application deployable through GitHub Pages. Deployment is defined in `.github/workflows/pages.yml`; check the repository's Pages deployment for current availability. The legacy `web/` entry redirects to the root application.
 
----
+The browser supports individual assessment of BAT-25, BAT-26, D2S123, D5S346 and D17S250, optional MLH1/MSH2/MSH6/PMS2 expression and molecular findings, as well as CSV import and download. All calculations and CSV handling take place in the browser. No backend, account, Pyodide or external libraries are needed. Browser JavaScript implements the same classification rules as the Python core.
 
-## 📖 What It Does
+## Classification
 
-Microsatellite Instability (MSI) Sensor Scorer
+The five-marker Bethesda rule used here is:
 
-Implements MSI assessment using the Bethesda panel and MMR IHC interpretation
-for microsatellite instability determination.
+| Unstable loci | PCR classification |
+| --- | --- |
+| 0 of 5 | MSS |
+| 1 of 5 | MSI-L |
+| 2–5 of 5 | MSI-H |
 
-References:
-  - Umar A et al. J Natl Cancer Inst. 2004;96(4):261-268 (Bethesda guidelines)
-  - Boland CR et al. Cancer Res. 1998;58(22):5248-5257 (Bethesda panel)
-  - Le DT et al. Science. 2015;350(6257):191-196 (MSI-H and immunotherapy)
-  - FDA Approval: Pembrolizumab for MSI-H/dMMR solid tumors (2017)
+MMR IHC reports retained or lost expression and flags relevant patterns for further evaluation. With both assays supplied, the tool reports PCR/IHC concordance. **Discordant results are explicitly labelled and must be reviewed**, rather than being assigned a combined positive result. MSI-L is not silently collapsed into MSS when IHC is included.
 
-Zero-dependency Python implementation (stdlib only).
-License: MIT
+These rules do not replace assay quality control, clinically validated interpretation algorithms, genetic counselling, or treatment eligibility assessment. The illustrative prevalence lookup and narrative treatment information in the Python CLI should not be used as current guidelines.
 
----
+## Command-line usage
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+Python 3.10–3.12 is the CI-tested range. The core scoring and CSV functions use the Python standard library.
 
-### 🔬 Analytical Functions
-
-- **`assess_msi_status()`**: Assess MSI status using the Bethesda panel of 5 markers.
-
-Parameters
-----------
-marker_results : dict
-    Dictionary mapping marker names to instability status.
-    Keys should be from: BAT-25, BAT-26, D2S123, D5S346, D17S250
-    Values: True = unstable, False = stable
-
-Returns
--------
-dict with msi_status, unstable_count, total_markers, unstable_markers,
-stable_markers, percent_unstable, description, treatment_implications
-- **`interpret_mmr_ihc()`**: Interpret Mismatch Repair (MMR) protein IHC results.
-
-Parameters
-----------
-mlh1 : bool
-    MLH1 expression (True = retained, False = lost).
-msh2 : bool
-    MSH2 expression (True = retained, False = lost).
-msh6 : bool
-    MSH6 expression (True = retained, False = lost).
-pms2 : bool
-    PMS2 expression (True = retained, False = lost).
-braf_v600e : bool, optional
-    BRAF V600E mutation status (True = present, False = absent).
-mlh1_promoter_methylation : bool, optional
-    MLH1 promoter methylation (True = methylated, False = unmethylated).
-
-Returns
--------
-dict with mmr_status, deficient_proteins, retained_proteins,
-suspected_lynch_syndrome, etiology, description, treatment_implications
-- **`combined_msi_assessment()`**: Combined MSI assessment using PCR-based markers and/or MMR IHC.
-
-Parameters
-----------
-marker_results : dict, optional
-    Bethesda panel marker results.
-mlh1, msh2, msh6, pms2 : bool, optional
-    MMR protein IHC results.
-braf_v600e : bool, optional
-    BRAF V600E mutation status.
-mlh1_promoter_methylation : bool, optional
-    MLH1 promoter methylation status.
-
-Returns
--------
-dict with msi_pcr_result, mmr_ihc_result, concordance, final_status,
-treatment_recommendations
-- **`get_msi_prevalence()`**: Get MSI-H prevalence for a specific cancer type.
-- **`process_batch()`**: Process a CSV of MSI cases (with path validation).
-
-Expected columns: BAT-25, BAT-26, D2S123, D5S346, D17S250 (as true/false)
-Optional: MLH1, MSH2, MSH6, PMS2, BRAF_V600E
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Assess MSI Status from Bethesda Panel
 ```bash
 python cli.py msi --bat25 unstable --bat26 unstable --d2s123 stable --d5s346 stable --d17s250 stable
-```
-
-### 2. Interpret MMR IHC Results
-```bash
-python cli.py mmr --mlh1 lost --msh2 retained --msh6 retained --pms2 lost --braf present
-```
-
-### 3. Combined Assessment
-```bash
+python cli.py mmr --mlh1 lost --msh2 retained --msh6 retained --pms2 lost
 python cli.py assess --bat25 unstable --bat26 unstable --d2s123 stable --d5s346 stable --d17s250 stable --mlh1 lost --msh2 retained --msh6 retained --pms2 lost
-```
-
-### 4. Get MSI-H Prevalence by Cancer Type
-```bash
 python cli.py prevalence --cancer-type colorectal
+python cli.py batch -i sample.csv -o results.csv
 ```
 
-### 5. Batch Process CSV
-```bash
-python cli.py batch -i input.csv -o results.csv
-```
+CSV must contain all five marker headings exactly as shown above and explicit `stable/unstable`, `true/false` or equivalent values. If IHC data are supplied, all four MMR protein columns are required. Optional columns are `BRAF_V600E` and `MLH1_PROMOTER_METHYLATION`. Invalid rows and duplicate headers are rejected. The CLI accepts caller-selected local file paths, which are **not** sandboxed.
 
-### 6. Start REST API Server
-```bash
-python cli.py serve --host 0.0.0.0 --port 8000
-```
-
-### CLI Commands
-
-| Command | Description | Key Parameters |
-|:--------|:------------|:---------------|
-| `msi` | Assess MSI from Bethesda panel | `--bat25`, `--bat26`, `--d2s123`, `--d5s346`, `--d17s250` (stable/unstable) |
-| `mmr` | Interpret MMR IHC results | `--mlh1`, `--msh2`, `--msh6`, `--pms2` (retained/lost), optional `--braf`, `--methylation` |
-| `assess` | Combined MSI + MMR assessment | All marker and MMR params (all optional) |
-| `prevalence` | MSI-H prevalence by cancer type | `--cancer-type` |
-| `batch` | Batch process CSV | `-i` input, `-o` output (default: results.csv) |
-| `serve` | Start FastAPI REST server | `--host`, `--port` (default: 0.0.0.0:8000) |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, DOB, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition. Uses `AUDIT_SECRET_KEY` env var or generates a secure ephemeral key.
-* **Path Traversal Protection:** Batch processing validates input/output file paths to prevent directory traversal attacks.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
-### Environment Variables
-| Variable | Description | Default |
-|:---------|:------------|:--------|
-| `AUDIT_SECRET_KEY` | HMAC key for audit trail integrity | Auto-generated (ephemeral) |
-| `MODEL_PROVIDER` | LLM provider (`mock`, `ollama`, `claude`, `openai`) | `mock` |
-
----
-
-## 🧪 Testing & Verification
-
-### Install Dependencies
-```bash
-pip install pytest pydantic fastapi uvicorn
-```
-
-### Run All Tests
-```bash
-pytest -v
-```
-
-### Test Structure
-- **`test_msi_scorer.py`** - 25 tests for core MSI/MMR scoring logic
-- **`tests/test_enrichment.py`** - 2 tests for enrichment suite
-- **`tests/test_msi_sensor_microsatellite_scorer.py`** - 3 tests for PHI guard, workers, and supervisor
-- **`tests/test_security.py`** - 15 tests for path traversal, HMAC key generation, and PHI patterns
-
-### Run Security Tests Only
-```bash
-pytest tests/test_security.py -v
-```
-
-### Execute High-Throughput Simulation
-```bash
-python simulator.py 1000
-```
-
----
-
-## 🐳 Container Deployment
+For the optional API:
 
 ```bash
-docker build -t msi-sensor-microsatellite-scorer .
-docker run -p 8000:8000 msi-sensor-microsatellite-scorer
+python -m pip install "fastapi>=0.110,<1" "uvicorn>=0.30,<1" "pydantic>=2,<3"
+python cli.py serve --host 127.0.0.1 --port 8000
 ```
+
+API routes in `agents/api.py` provide a separate demonstration audit/supervisor workflow. `/metrics` returns JSON counts and `/metrics/prometheus` exposes supervisor counters as Prometheus text; **they do not expose the Bethesda scoring functions**. The configured "mock" inference provider is a deterministic placeholder and does not perform guideline verification. Running the API on a public network requires an independent authentication, access-control, logging and privacy review.
+
+## Development and tests
+
+```bash
+python -m pip install "pytest>=8,<10" "fastapi>=0.110,<1" "pydantic>=2,<3" "uvicorn>=0.30,<1"
+python -m pytest -q
+node --test tests/test_browser_scoring.cjs
+node --check web/scoring.js
+node --check web/app.js
+```
+
+The bundled `sample.csv` contains three synthetic, non-identifiable test cases. The Node tests require Node.js 22; neither npm nor a JavaScript package installation is required. CI runs Python tests on 3.10–3.12, JavaScript tests and a Docker build. To serve the static app locally, run `python -m http.server 8080` and open `http://localhost:8080/`.
+
+A container can be built with `docker build -t msi-scorer .` and run on port 8000. Configure `AUDIT_SECRET_KEY` for stable HMAC signing across restarts. Without it, a random in-memory key is generated; the demonstration audit log is not a persistent tamper-evident ledger.
+
+## Privacy, limitations and compatibility
+
+- The static page does not upload data, store it in browser storage or load third-party analytics. Avoid uploading identifiable patient information even for local use.
+- Batch CSV exports escape spreadsheet formula prefixes in free-text input cells.
+- The optional FastAPI service is separate, server-side and **cannot run on GitHub Pages**. It is not hardened for public patient-data processing.
+- Modern desktop and mobile browsers supporting `File.text()` and `Blob` are expected to work. No browser compatibility matrix has been formally validated.
+- This tool is **research/educational software**, not diagnostic software. The historical Bethesda panel is not equivalent to modern comprehensive MSI NGS assays or to tissue-specific validated diagnostic algorithms.
+
+## License
+
+[MIT](LICENSE).

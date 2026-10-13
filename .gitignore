@@ -50,3 +50,10 @@ Thumbs.db
 results.csv
 output.csv
 *.csv.bak
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key

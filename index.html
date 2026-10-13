@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Local browser-based five-marker Bethesda panel MSI and MMR immunohistochemistry interpretation.">
+  <title>MSI & MMR IHC — Bethesda Panel Explorer</title>
+  <style>
+    :root {color-scheme:light;--ink:#193047;--muted:#496076;--border:#cdd8df;--bg:#f4f7f9;--card:#fff;--teal:#006f70;--focus:#136ac4;--soft:#e9f2f3}
+    * {box-sizing:border-box}
+    body {margin:0;background:var(--bg);color:var(--ink);font:16px/1.48 system-ui,-apple-system,"Segoe UI",sans-serif}
+    .wrap {max-width:1100px;margin:auto;padding:24px}
+    header {background:#132a41;color:#fff;padding:25px 0}
+    header .wrap {padding-top:0;padding-bottom:0}
+    h1 {font-size:clamp(1.45rem,3vw,2.1rem);line-height:1.2;margin:0 0 8px}
+    h2 {font-size:1.13rem;margin:0 0 15px}
+    h3 {font-size:1rem;margin:17px 0 8px}
+    p {margin:0 0 12px}
+    .subtitle {color:#d4e5ef;margin:0}
+    a {color:var(--teal)}
+    .hint {font-size:.88rem;color:var(--muted)}
+    .layout {display:grid;grid-template-columns:1.05fr 1fr;gap:18px;align-items:start}
+    .panel {background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;box-shadow:0 3px 12px #1830470c}
+    .panel + .panel {margin-top:16px}
+    .layout > .panel + .panel {margin-top:0}
+    .field {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #e5ebf0}
+    .field label {font-weight:600;font-size:.94rem}
+    select {background:white;color:var(--ink);border:1px solid #93a7b6;border-radius:7px;padding:9px 12px;min-width:150px;font:inherit}
+    input[type=file] {width:100%;font:inherit;padding:9px 0}
+    input[type=checkbox] {width:18px;height:18px;accent-color:var(--teal);vertical-align:middle}
+    select:focus-visible,input:focus-visible,button:focus-visible,a:focus-visible {outline:3px solid var(--focus);outline-offset:2px}
+    .check {display:block;padding:14px 0;font-weight:600}
+    fieldset {border:1px solid var(--border);border-radius:9px;margin:14px 0 0;padding:12px 15px}
+    legend {font-weight:700;padding:0 6px}
+    [hidden] {display:none!important}
+    button {font:600 .96rem system-ui,sans-serif;border:1px solid var(--teal);border-radius:8px;padding:12px 17px;cursor:pointer}
+    button.primary {background:var(--teal);color:white}
+    button.secondary {background:white;color:var(--teal)}
+    button:disabled {opacity:.5;cursor:not-allowed}
+    .actions {display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+    .output {background:#f0f6f6;border:1px solid #b8cecc;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;padding:18px;min-height:168px;font:500 .96rem/1.65 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .output.error {background:#fff4f1;border-color:#c56c57}
+    .warning {border-left:4px solid #b47721;background:#fff8eb;padding:13px 16px;margin-bottom:18px;font-size:.93rem}
+    .bulk {margin-top:18px}
+    code {background:#eaf1f5;padding:2px 4px;border-radius:3px}
+    footer {padding:25px 0;font-size:.85rem;color:var(--muted)}
+    @media(max-width:750px) {.layout{grid-template-columns:1fr}.layout>.panel+.panel{margin-top:0}.wrap{padding:16px}.panel{padding:18px}.field{align-items:stretch;flex-direction:column;gap:6px}.field select{width:100%}}
+  </style>
+  <script src="./web/scoring.js" defer></script>
+  <script src="./web/app.js" defer></script>
+</head>
+<body>
+  <header><div class="wrap">
+    <h1>Microsatellite Instability — Bethesda Panel Explorer</h1>
+    <p class="subtitle">Five-marker PCR classification and mismatch repair (MMR) immunohistochemistry pattern review</p>
+  </div></header>
+  <main class="wrap">
+    <div class="warning"><strong>Research / educational use only.</strong> This tool classifies manually supplied marker observations, not raw sequencing reads. It is <strong>not</strong> an implementation of the MSIsensor sequencing algorithm, a validated diagnostic device, a Lynch syndrome diagnosis, or a treatment recommendation. Interpret findings with the validated assay and clinical context. Do not enter patient identifiers.</div>
+    <div class="layout">
+      <section class="panel" aria-labelledby="panel-title">
+        <h2 id="panel-title">Single-sample assessment</h2>
+        <form id="score-form">
+          <p class="hint">Choose stable or unstable for each of the five Bethesda markers. Two or more unstable loci classify as MSI-H; one as MSI-L; none as MSS.</p>
+          <div class="field"><label for="bat25">BAT-25</label><select id="bat25" name="BAT-25"><option value="stable">Stable</option><option value="unstable">Unstable</option></select></div>
+          <div class="field"><label for="bat26">BAT-26</label><select id="bat26" name="BAT-26"><option value="stable">Stable</option><option value="unstable">Unstable</option></select></div>
+          <div class="field"><label for="d2s123">D2S123</label><select id="d2s123" name="D2S123"><option value="stable">Stable</option><option value="unstable">Unstable</option></select></div>
+          <div class="field"><label for="d5s346">D5S346</label><select id="d5s346" name="D5S346"><option value="stable">Stable</option><option value="unstable">Unstable</option></select></div>
+          <div class="field"><label for="d17s250">D17S250</label><select id="d17s250" name="D17S250"><option value="stable">Stable</option><option value="unstable">Unstable</option></select></div>
+          <label class="check" for="ihc-enabled"><input type="checkbox" id="ihc-enabled"> Include MMR IHC interpretation</label>
+          <fieldset id="ihc-panel" hidden>
+            <legend>MMR protein expression</legend>
+            <p class="hint">Loss/retention is assessed only with appropriate internal positive controls. Interpretation of inheritance risk is preliminary.</p>
+            <div class="field"><label for="mlh1">MLH1</label><select name="MLH1" id="mlh1"><option value="retained">Retained</option><option value="lost">Lost</option></select></div>
+            <div class="field"><label for="msh2">MSH2</label><select name="MSH2" id="msh2"><option value="retained">Retained</option><option value="lost">Lost</option></select></div>
+            <div class="field"><label for="msh6">MSH6</label><select name="MSH6" id="msh6"><option value="retained">Retained</option><option value="lost">Lost</option></select></div>
+            <div class="field"><label for="pms2">PMS2</label><select name="PMS2" id="pms2"><option value="retained">Retained</option><option value="lost">Lost</option></select></div>
+            <div class="field"><label for="braf">BRAF V600E</label><select id="braf" name="BRAF_V600E"><option value="">Not tested</option><option value="present">Detected</option><option value="absent">Not detected</option></select></div>
+            <div class="field"><label for="methylation">MLH1 promoter methylation</label><select id="methylation" name="MLH1_PROMOTER_METHYLATION"><option value="">Not tested</option><option value="present">Detected</option><option value="absent">Not detected</option></select></div>
+          </fieldset>
+          <div class="actions"><button class="primary" type="submit">Calculate classification</button><button class="secondary" type="reset">Reset</button></div>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="result-title">
+        <h2 id="result-title">Assessment output</h2>
+        <div class="output" id="result" tabindex="-1" role="status" aria-live="polite">No assessment yet
+
+Select five PCR marker states and choose Calculate.</div>
+        <p class="hint" style="margin-top:14px">MSI-L is not equivalent to MSI-H. Discordant PCR/IHC findings require review; the combined status is not automatically treated as positive.</p>
+      </section>
+    </div>
+    <section class="panel bulk" aria-labelledby="bulk-title">
+      <h2 id="bulk-title">Batch CSV assessment</h2>
+      <p>Process a CSV locally and download classified records. Required headers: <code>BAT-25,BAT-26,D2S123,D5S346,D17S250</code>. Values: <code>stable</code>/<code>unstable</code> or <code>true</code>/<code>false</code>. Optionally include all four columns <code>MLH1,MSH2,MSH6,PMS2</code> with <code>retained</code>/<code>lost</code>, plus <code>BRAF_V600E</code> and <code>MLH1_PROMOTER_METHYLATION</code>.</p>
+      <p class="hint">Maximum 2 MB or 5,000 records; malformed or missing marker data are rejected. Files are processed on this device only and are not sent to a server. Avoid protected health information.</p>
+      <label for="batch-file"><strong>Choose CSV</strong></label>
+      <input id="batch-file" type="file" accept=".csv,text/csv">
+      <p id="batch-info" role="status" aria-live="polite"></p>
+      <button type="button" class="primary" id="download" disabled>Download classified CSV</button>
+    </section>
+  </main>
+  <footer class="wrap">Bethesda-panel classification is distinct from next-generation sequencing MSIsensor scoring. Source and Python CLI: <a href="https://github.com/abusuraihsakhri/msi-sensor-microsatellite-scorer">GitHub repository</a>. MIT license.</footer>
+</body>
+</html>

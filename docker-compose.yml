@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   msi-sensor-microsatellite-scorer:
     build: .
     container_name: msi-sensor-microsatellite-scorer
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - AUDIT_SECRET_KEY=${AUDIT_SECRET_KEY:-change-me-in-production}
+      - AUDIT_SECRET_KEY=${AUDIT_SECRET_KEY:-}
       - MODEL_PROVIDER=mock
     restart: unless-stopped
     healthcheck:
