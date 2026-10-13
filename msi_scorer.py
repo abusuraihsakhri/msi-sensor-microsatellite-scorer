@@ -542,7 +542,7 @@ def main(argv=None):
 
     # Serve (FastAPI)
     p_serve = subparsers.add_parser("serve", help="Start FastAPI REST server")
-    p_serve.add_argument("--host", default="0.0.0.0")
+    p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
