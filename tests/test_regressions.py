@@ -138,3 +138,8 @@ def test_bundled_sample_csv_processes(tmp_path):
     sample = Path(__file__).resolve().parents[1] / "sample.csv"
     output = tmp_path / "out.csv"
     assert process_batch(str(sample), str(output)) == 3
+
+
+def test_molecular_adjunct_requires_complete_ihc():
+    with pytest.raises(ValueError, match="Molecular adjunct"):
+        combined_msi_assessment(marker_results=MARKERS, braf_v600e=True)
