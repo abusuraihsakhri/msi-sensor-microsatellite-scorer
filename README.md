@@ -45,7 +45,7 @@ python -m pip install "fastapi>=0.110,<1" "uvicorn>=0.30,<1" "pydantic>=2,<3"
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-API routes in `agents/api.py` provide a separate demonstration audit/supervisor workflow; **they do not expose the Bethesda scoring functions**. The configured "mock" inference provider is a deterministic placeholder and does not perform guideline verification. Running the API on a public network requires an independent authentication, access-control, logging and privacy review.
+API routes in `agents/api.py` provide a separate demonstration audit/supervisor workflow. `/metrics` returns JSON counts and `/metrics/prometheus` exposes supervisor counters as Prometheus text; **they do not expose the Bethesda scoring functions**. The configured "mock" inference provider is a deterministic placeholder and does not perform guideline verification. Running the API on a public network requires an independent authentication, access-control, logging and privacy review.
 
 ## Development and tests
 
@@ -57,7 +57,7 @@ node --check web/scoring.js
 node --check web/app.js
 ```
 
-The Node tests require Node.js 22; neither npm nor a JavaScript package installation is required. CI runs Python tests on 3.10–3.12, JavaScript tests and a Docker build. To serve the static app locally, run `python -m http.server 8080` and open `http://localhost:8080/`.
+The bundled `sample.csv` contains three synthetic, non-identifiable test cases. The Node tests require Node.js 22; neither npm nor a JavaScript package installation is required. CI runs Python tests on 3.10–3.12, JavaScript tests and a Docker build. To serve the static app locally, run `python -m http.server 8080` and open `http://localhost:8080/`.
 
 A container can be built with `docker build -t msi-scorer .` and run on port 8000. Configure `AUDIT_SECRET_KEY` for stable HMAC signing across restarts. Without it, a random in-memory key is generated; the demonstration audit log is not a persistent tamper-evident ledger.
 
