@@ -34,7 +34,7 @@ function combined(markers=null,proteins=null,braf=null,methylation=null){
  let concordance=null,final_status=null;
  if(pcr&&ihc){
   concordance=(pcr.msi_status==="MSI-H")===(ihc.mmr_status==="dMMR")?"Concordant":"Discordant";
-  final_status=concordance==="Discordant"?"Discordant (PCR/IHC)":pcr.msi_status==="MSI-H"?"MSI-H/dMMR":"MSS/pMMR";
+  final_status=concordance==="Discordant"?"Discordant (PCR/IHC)":pcr.msi_status==="MSI-H"?"MSI-H/dMMR":pcr.msi_status==="MSI-L"?"MSI-L/pMMR":"MSS/pMMR";
  }else final_status=pcr?pcr.msi_status:ihc.mmr_status;
  return {msi_pcr_result:pcr,mmr_ihc_result:ihc,concordance,final_status};
 }
@@ -68,8 +68,8 @@ function batchCSV(text){
  if(rows.length>5001)throw Error("Limit: 5,000 records per CSV");
  const parseBool=(value,kind,label,line)=>{
   const t=(value??"").trim().toLowerCase();
-  const yes=kind==="ihc"?["true","1","yes","retained","positive"]:["true","1","yes","unstable"];
-  const no=kind==="ihc"?["false","0","no","lost","negative"]:["false","0","no","stable"];
+  const yes=kind==="ihc"?["true","1","yes","retained","positive","present","detected","methylated"]:["true","1","yes","unstable"];
+  const no=kind==="ihc"?["false","0","no","lost","negative","absent","not_detected","unmethylated"]:["false","0","no","stable"];
   if(yes.includes(t))return true;
   if(no.includes(t))return false;
   throw Error("Row "+line+": invalid "+label+" value");
