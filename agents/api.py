@@ -25,7 +25,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "msi-sensor-microsatellite-scorer", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "HEALTHY", "service": "msi-sensor-microsatellite-scorer", "domain": "Clinical & Biomedical AI", "standard": "illustrative demonstration only", "version": "3.0.0-ENTERPRISE"}
 
 
 @app.get("/metrics")
@@ -33,7 +33,7 @@ def metrics():
     return {
         "dossiers_processed_total": len(supervisor.dossier_registry),
         "audit_blocks_total": len(AuditLogger.get_trail()),
-        "system_status": "NOMINAL_OPTIMAL"
+        "system_status": "ACTIVE"
     }
 
 
