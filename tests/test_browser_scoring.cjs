@@ -36,3 +36,13 @@ test("CSV output escapes spreadsheet formulas", () => {
   const r=batchCSV("BAT-25,BAT-26,D2S123,D5S346,D17S250,note\ntrue,true,false,false,false,=2+2\n");
   assert.match(r.csv, /'=2\+2/);
 });
+
+test("combined result preserves MSI-L with pMMR", () => {
+  const low={...markers,"BAT-26":false};
+  assert.equal(combined(low,{MLH1:true,MSH2:true,MSH6:true,PMS2:true}).final_status,"MSI-L/pMMR");
+});
+test("optional molecular values accepted in CSV", () => {
+  const csv="BAT-25,BAT-26,D2S123,D5S346,D17S250,MLH1,MSH2,MSH6,PMS2,BRAF_V600E,MLH1_PROMOTER_METHYLATION\n"+
+    "true,true,false,false,false,lost,retained,retained,lost,present,methylated\n";
+  assert.match(batchCSV(csv).csv,/MSI-H\/dMMR/);
+});
