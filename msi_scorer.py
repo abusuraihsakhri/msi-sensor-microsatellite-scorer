@@ -317,6 +317,10 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
 
     # IHC-based MMR assessment: do not silently discard partial panels.
     ihc_values = [mlh1, msh2, msh6, pms2]
+    if (braf_v600e is not None or mlh1_promoter_methylation is not None) and not all(
+        v is not None for v in ihc_values
+    ):
+        raise ValueError("Molecular adjunct results require all four MMR IHC protein values")
     if any(v is not None for v in ihc_values) and not all(v is not None for v in ihc_values):
         raise ValueError("MMR IHC assessment requires all four proteins")
     if all(v is not None for v in ihc_values):
@@ -452,6 +456,9 @@ def process_batch(input_csv: str, output_csv: str) -> int:
         ihc_cols = {"MLH1", "MSH2", "MSH6", "PMS2"}
         if (ihc_cols & set(fieldnames)) and not ihc_cols.issubset(fieldnames):
             raise ValueError("MMR IHC CSV requires all four protein columns")
+        if {"BRAF_V600E", "MLH1_PROMOTER_METHYLATION"} & set(fieldnames):
+            if not ihc_cols.issubset(fieldnames):
+                raise ValueError("Molecular adjunct CSV columns require all four MMR IHC columns")
         result_columns = ["msi_status", "unstable_count", "mmr_status", "final_status", "treatment_note"]
         if set(result_columns) & set(fieldnames):
             raise ValueError("CSV contains reserved output column names")
