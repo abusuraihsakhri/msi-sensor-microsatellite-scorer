@@ -342,6 +342,8 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
             result["final_status"] = "Discordant (PCR/IHC)"
         elif pcr_msih:
             result["final_status"] = "MSI-H/dMMR"
+        elif pcr["msi_status"] == "MSI-L":
+            result["final_status"] = "MSI-L/pMMR"
         else:
             result["final_status"] = "MSS/pMMR"
 
@@ -397,10 +399,9 @@ def get_msi_prevalence(cancer_type: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _validate_safe_path(path_str: str, must_exist: bool = False) -> Path:
-    """Validate that a path is safe (no traversal) and optionally exists."""
+    """Normalize a caller-supplied local path; this trusted CLI is not a filesystem sandbox."""
     path = Path(path_str).resolve()
-    # Prevent path traversal: ensure the resolved path is under current working directory
-    # or is an absolute path that the user explicitly intends
+    # The local CLI caller explicitly controls the input and output paths.
     if must_exist and not path.exists():
         raise FileNotFoundError(f"File not found: {path_str}")
     if must_exist and not path.is_file():
@@ -413,8 +414,8 @@ def _parse_csv_bool(value: str, label: str, row_number: int, *, protein: bool = 
     if value is None:
         raise ValueError(f"Row {row_number}: missing {label}")
     token = value.strip().lower()
-    positives = {"true", "1", "yes", "retained", "positive"} if protein else {"true", "1", "yes", "unstable"}
-    negatives = {"false", "0", "no", "lost", "negative"} if protein else {"false", "0", "no", "stable"}
+    positives = {"true", "1", "yes", "retained", "positive", "present", "detected", "methylated"} if protein else {"true", "1", "yes", "unstable"}
+    negatives = {"false", "0", "no", "lost", "negative", "absent", "not_detected", "unmethylated"} if protein else {"false", "0", "no", "stable"}
     if token in positives:
         return True
     if token in negatives:
