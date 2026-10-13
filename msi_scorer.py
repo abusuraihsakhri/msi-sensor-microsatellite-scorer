@@ -143,15 +143,15 @@ def assess_msi_status(marker_results: Dict[str, bool]) -> Dict[str, Any]:
         }
     elif msi_status == "MSI-L":
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for MSI-L tumors",
+            "pembrolizumab": "NOT indicated on the basis of MSI-L alone",
             "nivolumab": "NOT indicated for MSI-L tumors",
-            "note": "MSI-L tumors generally do not respond to checkpoint inhibitors. Consider other biomarkers.",
+            "note": "MSI-L alone is not a validated positive predictive marker for checkpoint inhibitor response; assess other indications.",
         }
     else:
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for MSS tumors",
+            "pembrolizumab": "NOT indicated on the basis of MSS alone",
             "nivolumab": "NOT indicated for MSS tumors",
-            "note": "MSS tumors generally do not respond to checkpoint inhibitors.",
+            "note": "MSS alone does not determine overall immunotherapy eligibility; consider other biomarkers and indications.",
         }
 
     return result
@@ -219,10 +219,10 @@ def interpret_mmr_ihc(mlh1: bool, msh2: bool, msh6: bool, pms2: bool,
         if "MLH1" in lost and "PMS2" in lost:
             # MLH1 loss causes secondary PMS2 loss
             if braf_v600e is True:
-                etiology = "Sporadic (MLH1 loss + BRAF V600E = sporadic hypermethylation)"
+                etiology = "Sporadic origin favored by BRAF V600E in colorectal tumors; correlate with methylation and clinical context"
                 lynch = False
             elif mlh1_promoter_methylation is True:
-                etiology = "Sporadic (MLH1 promoter methylation confirmed)"
+                etiology = "Sporadic origin favored (MLH1 promoter methylation detected); rare constitutional causes require context"
                 lynch = False
             elif braf_v600e is False and mlh1_promoter_methylation is False:
                 etiology = "Lynch syndrome suspected (MLH1 loss without BRAF V600E or methylation)"
@@ -267,8 +267,8 @@ def interpret_mmr_ihc(mlh1: bool, msh2: bool, msh6: bool, pms2: bool,
         }
     else:
         result["treatment_implications"] = {
-            "pembrolizumab": "NOT indicated for pMMR tumors",
-            "note": "pMMR tumors generally do not respond to checkpoint inhibitors.",
+            "pembrolizumab": "NOT indicated on the basis of pMMR alone",
+            "note": "pMMR alone does not determine overall immunotherapy eligibility; consider other biomarkers and indications.",
         }
 
     return result
@@ -368,7 +368,7 @@ def combined_msi_assessment(marker_results: Optional[Dict[str, bool]] = None,
         }
     else:
         result["treatment_recommendations"] = {
-            "immune_checkpoint_inhibitors": "NOT indicated",
+            "immune_checkpoint_inhibitors": "NOT indicated solely from these MSI/MMR findings",
             "note": "Consider other biomarkers for treatment selection.",
         }
 
@@ -570,7 +570,12 @@ def main(argv=None):
 
     elif args.command == "assess":
         markers = None
-        if all(getattr(args, m) is not None for m in ["bat25", "bat26", "d2s123", "d5s346", "d17s250"]):
+        marker_args = ["bat25", "bat26", "d2s123", "d5s346", "d17s250"]
+        if any(getattr(args, m) is not None for m in marker_args) and not all(
+            getattr(args, m) is not None for m in marker_args
+        ):
+            parser.error("Combined assessment requires all five PCR marker arguments")
+        if all(getattr(args, m) is not None for m in marker_args):
             markers = {
                 "BAT-25": args.bat25 == "unstable",
                 "BAT-26": args.bat26 == "unstable",
