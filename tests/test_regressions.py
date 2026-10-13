@@ -101,3 +101,40 @@ def test_optional_molecular_marker_csv_values(tmp_path):
     )
     assert process_batch(str(source), str(output)) == 1
     assert "MSI-H/dMMR" in output.read_text()
+
+
+def test_enrichment_suite_returns_distinct_modules():
+    from enrichment import MsisensormicrosatellitescorerEnrichmentSuite
+    result = MsisensormicrosatellitescorerEnrichmentSuite().execute_all()
+    assert len(result) == 5
+    assert "PairedAnalysisPlanEngine" in result
+    assert "ImplementationPlanEngine" in result
+
+
+def test_simulator_rejects_zero_runs():
+    from simulator import run_simulation
+    with pytest.raises(ValueError, match="positive"):
+        run_simulation(0)
+
+
+def test_metrics_expose_real_supervisor_counts():
+    from agents.api import prometheus_metrics
+    from agents.metrics import GLOBAL_METRICS
+    from agents.models import SystemTaskPayload
+    from agents.supervisor import SystemSupervisor
+    before = GLOBAL_METRICS.tasks_total
+    supervisor = SystemSupervisor(model_provider="mock")
+    supervisor.process_task(SystemTaskPayload(
+        task_id="TEST-METRIC-01", target_identifier="KEY-METRIC-01", primary_metric=10.0
+    ))
+    assert GLOBAL_METRICS.tasks_total == before + 1
+    metrics_text = prometheus_metrics()
+    assert 'system_tasks_total{' in metrics_text
+    assert str(GLOBAL_METRICS.tasks_total) in metrics_text
+
+
+def test_bundled_sample_csv_processes(tmp_path):
+    from pathlib import Path
+    sample = Path(__file__).resolve().parents[1] / "sample.csv"
+    output = tmp_path / "out.csv"
+    assert process_batch(str(sample), str(output)) == 3
