@@ -84,3 +84,20 @@ def test_audit_hmac_detects_signature_tampering():
     audit.log("test", "worker", "PROCESS", {"value": "ok"})
     audit.logs[0]["current_hash"] = "0" * 64
     assert not audit.verify_integrity()
+
+
+def test_msi_low_preserved_with_proficient_ihc():
+    markers = {**MARKERS, "BAT-26": False}
+    result = combined_msi_assessment(marker_results=markers, mlh1=True, msh2=True, msh6=True, pms2=True)
+    assert result["final_status"] == "MSI-L/pMMR"
+
+
+def test_optional_molecular_marker_csv_values(tmp_path):
+    source = tmp_path / "in.csv"
+    output = tmp_path / "out.csv"
+    source.write_text(
+        "BAT-25,BAT-26,D2S123,D5S346,D17S250,MLH1,MSH2,MSH6,PMS2,BRAF_V600E,MLH1_PROMOTER_METHYLATION\n"
+        "true,true,false,false,false,lost,retained,retained,lost,present,methylated\n"
+    )
+    assert process_batch(str(source), str(output)) == 1
+    assert "MSI-H/dMMR" in output.read_text()
